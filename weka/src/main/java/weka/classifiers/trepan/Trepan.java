@@ -1,23 +1,18 @@
-// Trepan
-
 package weka.classifiers.trepan;
 
-import java.io.*;
 import java.util.*;
 import weka.core.*;
 import weka.classifiers.*;
 import weka.core.Queue;
-import weka.estimators.*;
 import weka.core.Option;
 import weka.core.OptionHandler;
-import weka.core.SelectedTag;
-import weka.core.Tag;
 import weka.core.Utils;
 import weka.filters.*;
+import weka.filters.unsupervised.attribute.ReplaceMissingValues;
 
 // class for running Trepan classifier
 
-public class Trepan extends DistributionClassifier implements OptionHandler {
+public class Trepan extends AbstractClassifier implements OptionHandler {
     // class atribute of dataset
     private Attribute m_ClassAttribute;
     // Used to set the max number of nodes allowed in the tree
@@ -27,7 +22,7 @@ public class Trepan extends DistributionClassifier implements OptionHandler {
     // Proportion of instances belonging to the same class that makes the node a leaf
     private double m_propInst = 0.95;
     // Oracle used to classify instances
-    protected Classifier m_Oracle = new weka.classifiers.neural.NeuralNetwork();
+    protected Classifier m_Oracle = new weka.classifiers.functions.MultilayerPerceptron();
     // Instances classified by the Oracle
     private Instances newData;
     // Queue of leaves
@@ -67,9 +62,9 @@ public class Trepan extends DistributionClassifier implements OptionHandler {
         m_Oracle.buildClassifier(data);
 
         // Replace missing values
-        m_Filter = new ReplaceMissingValuesFilter();
-        m_Filter.inputFormat(data);
-        Instances. filteredData = Filter.useFilter(data, m_Filter);
+        m_Filter = new ReplaceMissingValues();
+        m_Filter.setInputFormat(data);
+        Instances filteredData = Filter.useFilter(data, m_Filter);
         data = new Instances(filteredData);
         // Classify data with the Oracle
         newData = new Instances(classifyWithOracle(data));
@@ -209,7 +204,7 @@ public class Trepan extends DistributionClassifier implements OptionHandler {
         if (node.getNodeType() == "L") {
             return true;
         } else {
-            return false
+            return false;
         }
     }
 
@@ -314,33 +309,44 @@ public class Trepan extends DistributionClassifier implements OptionHandler {
         Queue m_Queue = new Queue();
 
         TrepanNode m_Node;
-        double Class;
+        double Class = 0;
         boolean IdemClass;
         boolean AllLeaves;
-
         while (again) {
             again = false;
             m_Queue.push(m_RootNode);
 
             while (!m_Queue.empty()) {
                 m_Node = (TrepanNode) m_Queue.pop();
+                TrepanNode [] m_ChildNode = m_Node.getChildren();
 
                 if (m_Node.getNodeType() != "L") {
                     // Get node's children
-                    TrepanNode [] m_ChildNode = m_Node.getChildren();
+                    m_ChildNode = m_Node.getChildren();
 
                     // Check if all the children are leafs
                     AllLeaves = true;
-                    for (int i = 0; i < m_Node.getCountChildren(); m++) {
-                        if (m_ChildNode[m].getClassLabel() != Class) {
-                            IdemClass = false;
+                    for (int i = 0; i < m_Node.getCountChildren(); i++) {
+                        if (m_ChildNode[i].getNodeType() != "L") {
+                            AllLeaves = false;
                         }
                     }
-                    if (IdemClass) {
-                        // Make parent node a leaf
-                        m_Node.setClassLabel(Class);
-                        m_Node.makeALeaf();
-                        again = true;
+
+                    if (AllLeaves) {
+                        // Check if all the nodes predict the same class
+                        IdemClass = true;
+                        Class = m_ChildNode[0].getClassLabel();
+                        for (int m = 1; m < m_Node.getCountChildren(); m++) {
+                            if (m_ChildNode[m].getClassLabel() != Class) {
+                                IdemClass = false;
+                            }
+                        }
+                        if (IdemClass) {
+                            // Make parent node a leaf
+                            m_Node.setClassLabel(Class);
+                            m_Node.makeALeaf();
+                            again = true;
+                        }
                     }
                 } else {
                     for (int m = 0; m < m_Node.getCountChildren(); m++) {
@@ -425,6 +431,26 @@ public class Trepan extends DistributionClassifier implements OptionHandler {
         return distributionForTrepanInstance(m_RootNode, instance);
     }
 
+    @Override
+    public Capabilities getCapabilities() {
+        Capabilities result = new Capabilities(this);
+        result.disableAll();
+
+        // attributes
+        result.enable(Capabilities.Capability.NOMINAL_ATTRIBUTES);
+        result.enable(Capabilities.Capability.NUMERIC_ATTRIBUTES);
+        result.enable(Capabilities.Capability.DATE_ATTRIBUTES);
+        result.enable(Capabilities.Capability.MISSING_VALUES);
+
+        // class
+        result.enable(Capabilities.Capability.NOMINAL_CLASS);
+        result.enable(Capabilities.Capability.NUMERIC_CLASS);
+        result.enable(Capabilities.Capability.DATE_CLASS);
+        result.enable(Capabilities.Capability.MISSING_CLASS_VALUES);
+
+        return result;
+    }
+
     // Computes class distribution for instance using TREPAN tree
     // node = root node
     // instance = instance for which distribution is to be computed
@@ -478,7 +504,7 @@ public class Trepan extends DistributionClassifier implements OptionHandler {
 
         if (m_Attribute == null) {
             m_CountLeaves ++;
-            if (Instance.isMissingValue(dClass)) {
+            if (Utils.isMissingValue(dClass)) {
                 text.append(": null");
             } else {
                 text.append(": " + m_ClassAttribute.value((int) dClass));
@@ -510,7 +536,7 @@ public class Trepan extends DistributionClassifier implements OptionHandler {
                                 + " (B= " + Utils.roundDouble(node.getChild(j).getBestFirst(), 3) + ")");
                     }
                 }
-                TrepanNode childNode = node.getChild();
+                TrepanNode childNode = node.getChild(j);
                 text.append(toString(childNode, level + 1));
             }
         }
@@ -664,7 +690,7 @@ public class Trepan extends DistributionClassifier implements OptionHandler {
             throw new Exception("A classifier must be specified with the -W option");
         }
 
-        setOracle(Classifier.forName(classifierName, Utils.partitionOptions(options)));
+        setOracle(AbstractClassifier.forName(classifierName, Utils.partitionOptions(options)));
     }
 
     // Gets the current settings of trepan
@@ -682,7 +708,7 @@ public class Trepan extends DistributionClassifier implements OptionHandler {
         options[current++] = "-M";
         options[current++] = "" + getMaxNodes();
         if (m_BestFirst) {
-            options[current++] = "-B"
+            options[current++] = "-B";
         }
         if (m_Pruning) {
             options[current++] = "-P";
