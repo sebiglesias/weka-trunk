@@ -504,7 +504,6 @@ public class Trepan extends AbstractClassifier implements OptionHandler {
     private double[] distributionForTrepanInstance(TrepanNode node, Instance instance) {
         Attribute m_Attribute = node.getSplitAttribute();
         if (m_Attribute == null) {
-            double[] classMembership = node.getDistribution();
             return node.getDistribution();
         } else {
             // Get the child node according to attribute value
@@ -524,8 +523,10 @@ public class Trepan extends AbstractClassifier implements OptionHandler {
         }
     }
 
-    // prints the decision tree using the private toString method below
-    // return textual description of the classifier
+    /**
+     * Print the decision tree using the private toString method from below
+     * @return textual description of the classifier
+     */
     public String toString() {
         m_CountLeaves = 0;
         m_CountNodes = 0;
@@ -683,10 +684,10 @@ public class Trepan extends AbstractClassifier implements OptionHandler {
         return m_Fidelity;
     }
 
-    // Option handler
-
-    // Returns an enumeration describing the available options
-    // return an enumeration of all the available options
+    /**
+     * Returns an enumeration describing the available options
+     * @return an enumeration of all the available options
+     */
     public Enumeration listOptions() {
         Vector newVector = new Vector(6);
         newVector.addElement(new Option("\tMin number of samples to test a node.\n" + "\t(Default = 100).", "m", 1, "-m <number of samples>"));
@@ -706,9 +707,11 @@ public class Trepan extends AbstractClassifier implements OptionHandler {
         return newVector.elements();
     }
 
-    // Parse a given list of options
-    // options = the list of options as an array of strings
-    // exception = if an option is not supported
+    /**
+     * Parse a given list of options
+     * @param options the list of options as an array of strings
+     * @throws Exception if an option is not supported
+     */
     public void setOptions(String[] options) throws Exception {
         String minSampleString = Utils.getOption('m', options);
         if (minSampleString.length() != 0) {
@@ -746,8 +749,10 @@ public class Trepan extends AbstractClassifier implements OptionHandler {
         setOracle(AbstractClassifier.forName(classifierName, Utils.partitionOptions(options)));
     }
 
-    // Gets the current settings of trepan
-    // return an array of strings suitable for passing to setOptions()
+    /**
+     * Gets the current settings of Trepan
+     * @return an array of strings suitable for passing to setOptions(
+     */
     public String[] getOptions() {
         String [] classifierOptions = new String[0];
         if ((oracle instanceof OptionHandler)) {
@@ -781,7 +786,10 @@ public class Trepan extends AbstractClassifier implements OptionHandler {
         return options;
     }
 
-    //main method
+    /**
+     * Main Method
+     * @param args the options for the classifier
+     */
     public static void main(String[] args) {
         try {
             System.out.println(Evaluation.evaluateModel(new Trepan(), args));

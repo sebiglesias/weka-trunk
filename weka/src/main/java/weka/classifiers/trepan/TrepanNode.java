@@ -395,9 +395,8 @@ public class TrepanNode {
         double actual = 0; // Attribute value
         double value = 0; // Split value
         double maxInfoGain = 0;
-        double infoGain = 0;
-        double infoGainData = 0;
-        double minSplit = 0;
+        double infoGain;
+        double infoGainData;
 
         // Sort instances by attr
         Instances data = new Instances(instances);
@@ -416,8 +415,6 @@ public class TrepanNode {
 
         // Candidate values
         double[] candValues = new double[numInst];
-        double first = 0;
-        double last = 0;
         int k = 0; // Counter
         int pos = 0; // Counter
 
