@@ -10,56 +10,75 @@ import weka.core.Utils;
 import weka.filters.*;
 import weka.filters.unsupervised.attribute.ReplaceMissingValues;
 
-// class for running Trepan classifier
+/**
+ * class for running Trepan classifier
+ */
 
 public class Trepan extends AbstractClassifier implements OptionHandler {
-    // class atribute of dataset
-    private Attribute m_ClassAttribute;
-    // Used to set the max number of nodes allowed in the tree
-    private int m_maxNodes = 0;
-    // Used to set the min number of examples required to test a node
-    private int m_minSamples = 0;
-    // Proportion of instances belonging to the same class that makes the node a leaf
-    private double m_propInst = 0.95;
-    // Oracle used to classify instances
-    protected Classifier m_Oracle = new weka.classifiers.functions.MultilayerPerceptron();
-    // Instances classified by the Oracle
+
+    /** class atribute of dataset */
+    private Attribute classAttribute;
+
+    /** Used to set the max number of nodes allowed in the tree */
+    private int maxNumberOfNodes = 0;
+
+    /** Used to set the min number of examples required to test a node */
+    private int minNumberOfNodes = 0;
+
+    /** Proportion of instances belonging to the same class that makes the node a leaf */
+    private double proportionOfSameClass = 0.95;
+
+    /** Oracle used to classify instances */
+    protected Classifier oracle = new weka.classifiers.functions.MultilayerPerceptron();
+
+    /** Instances classified by the Oracle */
     private Instances newData;
-    // Queue of leaves
+
+    /** Queue of leaves */
     private Queue m_Queue;
-    // Construct the tree using the best nodes
+
+    /** Construct the tree using the best nodes */
     private boolean m_BestFirst = false;
-    // Prune the tree
+
+    /** Prune the tree */
     private boolean m_Pruning = false;
-    // Root node
+
+    /** Root node */
     private TrepanNode m_RootNode;
-    // Filter to replace missing values
+
+    /** Filter to replace missing values */
     private Filter m_Filter;
-    // Counters
+
+    /** Counters */
     private int m_CountNodes = 0;
     private int m_CountLeaves = 0;
-    // Tree fidelity
+
+    /** Tree fidelity */
     private double m_Fidelity;
 
-    // Builds Trepan decision tree classifier
-    // data = training data
-    // exception if classififer can't be built succesfully
+    /**
+     * Builds Trepan decision tree classifier
+     * @param data set of instances serving as training data
+     * @throws Exception if classifier can't be built successfully
+     */
     public void buildClassifier(Instances data) throws Exception {
         if (data.numInstances() == 0) {
             throw new IllegalArgumentException("No training instances.");
         }
+        // Class must be nominal
         if (!data.classAttribute().isNominal()) {
             throw new Exception("Trepan: nominal class please");
         }
+        // Check string attributes
         if (data.checkForStringAttributes()) {
             throw new Exception("Trepan: no string attributes please");
         }
         data = new Instances(data);
 
         // Class attribute
-        m_ClassAttribute = data.classAttribute();
+        classAttribute = data.classAttribute();
         // Build Oracle's Classifier
-        m_Oracle.buildClassifier(data);
+        oracle.buildClassifier(data);
 
         // Replace missing values
         m_Filter = new ReplaceMissingValues();
@@ -72,9 +91,11 @@ public class Trepan extends AbstractClassifier implements OptionHandler {
         makeTree(newData);
     }
 
-    // Check missing values in data
-    // data = dataset
-    // return true if data contains missing values
+    /**
+     * Check missing values in data
+     * @param data dataset
+     * @return true if data contains missing values
+     */
     private boolean withMissingValues(Instances data) {
         boolean missing = false;
         Enumeration enumAtt = data.enumerateAttributes();
@@ -90,10 +111,12 @@ public class Trepan extends AbstractClassifier implements OptionHandler {
         return missing;
     }
 
-    // Replace the instance's classes with the class predicted by the oracle
-    // data = training data
-    // exception = if there is an error
-    // return data classified with the oracle
+    /**
+     * Replace the instance's classes with the class predicted by the oracle
+     * @param data training data
+     * @return data classified with the oracle
+     * @throws Exception if there is an error
+     */
     private Instances classifyWithOracle(Instances data) throws Exception {
         Instance newInstance;
         double newClassValue;
@@ -102,16 +125,18 @@ public class Trepan extends AbstractClassifier implements OptionHandler {
         Enumeration enumeration = data.enumerateInstances();
         while (enumeration.hasMoreElements()) {
             newInstance = (Instance) enumeration.nextElement();
-            newClassValue = m_Oracle.classifyInstance(newInstance);
+            newClassValue = oracle.classifyInstance(newInstance);
             newInstance.setClassValue(newClassValue);
             newData.add(newInstance);
         }
         return newData;
     }
 
-    // Build trepan tree
-    // data = training data
-    // exception if decision tree can't be built successfully
+    /**
+     * Build trepan tree
+     * @param data training data
+     * @throws Exception if decision tree can't be built successfully
+     */
     private void makeTree(Instances data) throws Exception {
         // Inicialize the root node
         m_RootNode = new TrepanNode(data);
@@ -119,7 +144,7 @@ public class Trepan extends AbstractClassifier implements OptionHandler {
         m_RootNode.setNodeType(r);
         m_RootNode.setReach(1);
         // Create new instances
-        m_RootNode.drawSample(m_minSamples, m_Oracle);
+        m_RootNode.drawSample(minNumberOfNodes, oracle);
 
         // Set node's main class
         m_RootNode.setClassLabelNodo();
@@ -138,8 +163,8 @@ public class Trepan extends AbstractClassifier implements OptionHandler {
         int m_LongTree = 0;
         // If Best First -> we need to make the tree and then prune it
         // Else we generate the tree pruned
-        if (!m_BestFirst && m_maxNodes > 0) {
-            m_LongTree = m_maxNodes;
+        if (!m_BestFirst && maxNumberOfNodes > 0) {
+            m_LongTree = maxNumberOfNodes;
         } else {
             m_LongTree = 99999;
         }
@@ -152,13 +177,13 @@ public class Trepan extends AbstractClassifier implements OptionHandler {
             m_Node.setIdNodo(m_NumNodes);
             m_NumNodes ++;
             // Split node
-            m_Node.constructTest(m_propInst);
+            m_Node.constructTest(proportionOfSameClass);
             // Get node's children
             TrepanNode [] m_ChildNode = m_Node.getChildren();
-            for (int j =0; j < m_Node.getCountChildren(); j++) {
+            for (int j = 0; j < m_Node.getCountChildren(); j++) {
                 if (!(localStopCriteria(m_ChildNode[j]))) {
                     // Node is not a leaf, add children in queue
-                    m_ChildNode[j].drawSample(m_minSamples, m_Oracle);
+                    m_ChildNode[j].drawSample(minNumberOfNodes, oracle);
                     m_ChildNode[j].setClassLabelNodo();
                     m_Queue.push(m_ChildNode[j]);
                 } else {
@@ -179,8 +204,8 @@ public class Trepan extends AbstractClassifier implements OptionHandler {
         }
 
         // If best first then choose the best nodes
-        if (m_maxNodes > 0) {
-            if (m_NumNodes > m_maxNodes) {
+        if (maxNumberOfNodes > 0) {
+            if (m_NumNodes > maxNumberOfNodes) {
                 if (m_BestFirst) {
                     // Make BestFirst tree
                     GetBestTree(m_NumNodes);
@@ -194,29 +219,29 @@ public class Trepan extends AbstractClassifier implements OptionHandler {
         }
 
         // Compute Fidelity between the tree and the oracle
-        m_Fidelity = computerFidelity(newData);
+        m_Fidelity = computeFidelity(newData);
     }
 
-    // Indicates if node must be expanded
-    // node = node to be evaluated
-    // return true if node is a leaf
+    /**
+     * Indicates if node must be expanded
+     * @param node to be evaluated
+     * @return true if node is a leaf
+     */
     private boolean localStopCriteria(TrepanNode node) {
-        if (node.getNodeType() == "L") {
-            return true;
-        } else {
-            return false;
-        }
+        return node.getNodeType().equals("L");
     }
 
-    // Make a new pruned tree using the best nodes
-    // m_NumNodes = num of nodes of the original tree
+    /**
+     * Make a new pruned tree using the best nodes
+     * @param m_NumNodes number of nodes of the original tree
+     */
     private void GetBestTree(int m_NumNodes) {
         // Vector containing all the tree's nodes
         TrepanNode[] vNodos = new TrepanNode[m_NumNodes];
         cargarVectorNodos(m_RootNode, vNodos);
 
         // Vector containing the best nodes
-        int[] vValidos = new int[m_maxNodes];
+        int[] vValidos = new int[maxNumberOfNodes];
         // Vector containing BestFirst values
         double[] vBF = new double[m_NumNodes];
         // ID valid node
@@ -236,7 +261,7 @@ public class Trepan extends AbstractClassifier implements OptionHandler {
         vValidos[i] = ID;
         i++;
 
-        while (i < m_maxNodes) {
+        while (i < maxNumberOfNodes) {
             // Insert child nodes into vNodos
             for (int k = 0; k < vNodos[ID].getCountChildren(); k++) {
                 IdNodo = vNodos[ID].getChild(k).getIdNodo();
@@ -253,14 +278,14 @@ public class Trepan extends AbstractClassifier implements OptionHandler {
         }
 
         // Make leafs with the remaining nodes
-        Queue m_Queue = new Queue();
+        m_Queue = new Queue();
         m_Queue.push(m_RootNode);
 
         TrepanNode m_Node;
         while (!m_Queue.empty()) {
             m_Node = (TrepanNode) m_Queue.pop();
             // Check if the node is a Best Node
-            if (NodoEncontrado(m_Node.getIdNodo(), vValidos) == false) {
+            if (!NodoEncontrado(m_Node.getIdNodo(), vValidos)) {
                 // If node is not a best node then make a leaf
                 m_Node.makeALeaf();
             } else {
@@ -275,13 +300,16 @@ public class Trepan extends AbstractClassifier implements OptionHandler {
         }
     }
 
-    // Check if a node is found in a vector
-    // idNodo = node to be found
-    // return true if the node is found
+    /**
+     * Check if a node is found in a vector
+     * @param idNodo node to be found
+     * @param vect vector where to find the node
+     * @return true if the node is found
+     */
     private boolean NodoEncontrado(int idNodo, int[] vect) {
         boolean bfound = false;
         int i = 0;
-        while (!bfound && i < m_maxNodes) {
+        while (!bfound && i < maxNumberOfNodes) {
             if (vect[i] == idNodo) {
                 bfound = true;
             }
@@ -290,12 +318,14 @@ public class Trepan extends AbstractClassifier implements OptionHandler {
         return bfound;
     }
 
-    // Insert all the tree's nodes into a vector (recursive)
-    // m_Node node to be inserted
-    // vNodos vector
+    /**
+     * Insert all the tree's nodes into a vector (recursive)
+     * @param m_Node node to be inserted
+     * @param vNodos vector
+     */
     private void cargarVectorNodos(TrepanNode m_Node, TrepanNode[] vNodos) {
         vNodos[m_Node.getIdNodo()] = m_Node;
-        if (m_Node.getNodeType() != "L") {
+        if (!m_Node.getNodeType().equals("L")) {
             TrepanNode [] m_ChildNode = m_Node.getChildren();
             for (int j = 0; j < m_Node.getCountChildren(); j++) {
                 cargarVectorNodos(m_ChildNode[j], vNodos);
@@ -303,15 +333,17 @@ public class Trepan extends AbstractClassifier implements OptionHandler {
         }
     }
 
-    // Prune the tree
+    /**
+     * Prune the tree
+     */
     private void pruneTree() {
         boolean again = true;
-        Queue m_Queue = new Queue();
+        m_Queue = new Queue();
 
         TrepanNode m_Node;
-        double Class = 0;
-        boolean IdemClass;
-        boolean AllLeaves;
+        double classValue = 0;
+        boolean idemClass;
+        boolean allLeaves;
         while (again) {
             again = false;
             m_Queue.push(m_RootNode);
@@ -320,48 +352,50 @@ public class Trepan extends AbstractClassifier implements OptionHandler {
                 m_Node = (TrepanNode) m_Queue.pop();
                 TrepanNode [] m_ChildNode = m_Node.getChildren();
 
-                if (m_Node.getNodeType() != "L") {
+                if (!m_Node.getNodeType().equals("L")) {
                     // Get node's children
                     m_ChildNode = m_Node.getChildren();
 
                     // Check if all the children are leafs
-                    AllLeaves = true;
+                    allLeaves = true;
                     for (int i = 0; i < m_Node.getCountChildren(); i++) {
-                        if (m_ChildNode[i].getNodeType() != "L") {
-                            AllLeaves = false;
+                        if (!m_ChildNode[i].getNodeType().equals("L")) {
+                            allLeaves = false;
                         }
                     }
 
-                    if (AllLeaves) {
+                    if (allLeaves) {
                         // Check if all the nodes predict the same class
-                        IdemClass = true;
-                        Class = m_ChildNode[0].getClassLabel();
+                        idemClass = true;
+                        classValue = m_ChildNode[0].getClassLabel();
                         for (int m = 1; m < m_Node.getCountChildren(); m++) {
-                            if (m_ChildNode[m].getClassLabel() != Class) {
-                                IdemClass = false;
+                            if (m_ChildNode[m].getClassLabel() != classValue) {
+                                idemClass = false;
                             }
                         }
-                        if (IdemClass) {
+                        if (idemClass) {
                             // Make parent node a leaf
-                            m_Node.setClassLabel(Class);
+                            m_Node.setClassLabel(classValue);
                             m_Node.makeALeaf();
                             again = true;
                         }
-                    }
-                } else {
-                    for (int m = 0; m < m_Node.getCountChildren(); m++) {
-                        m_Queue.push(m_ChildNode[m]);
+                    } else {
+                        for (int m = 0; m < m_Node.getCountChildren(); m++) {
+                            m_Queue.push(m_ChildNode[m]);
+                        }
                     }
                 }
             }
         }
     }
 
-    // Method computing the fidelity of the classifier with the Oracle
-    // data = training data
-    // exception if there is an error
-    // return the fidelity
-    public double computerFidelity(Instances data) throws Exception {
+    /**
+     * Method computing the fidelity of the classifier with the Oracle
+     * @param data training data
+     * @return the fidelity
+     * @throws Exception if there is an error
+     */
+    public double computeFidelity(Instances data) throws Exception {
         Instance instance;
         double classValue;
         double classValueOracle;
@@ -372,19 +406,22 @@ public class Trepan extends AbstractClassifier implements OptionHandler {
             instance = (Instance) enumeration.nextElement();
             // Clasify instance with Tree
             classValue = classifyInstance(instance);
-            // Classify instance with ORacle
-            classValueOracle = m_Oracle.classifyInstance(instance);
+            // Classify instance with Oracle
+            classValueOracle = oracle.classifyInstance(instance);
             if (classValue == classValueOracle) {
                 countFidelity++;
             }
         }
         // Compute Fidelity
-        return (double)((double)countFidelity / (double) data.numInstances());
+        return (countFidelity / (double) data.numInstances());
     }
 
-    // Classifies a given test instance using the decision tree
-    // instance = instance to be classified
-    // return the classification
+    /**
+     * Classifies a given test instance using the decision tree
+     * @param instance the instance to be classified
+     * @return the classification
+     * @throws Exception if an error occurs
+     */
     public double classifyInstance(Instance instance) throws Exception {
         // Replace missing values
         m_Filter.input(instance);
@@ -393,10 +430,12 @@ public class Trepan extends AbstractClassifier implements OptionHandler {
         return classifyTrepanInstance(m_RootNode, instance);
     }
 
-    // Classifies a given test instance using the TREPAN tree
-    // node = root node
-    // instance = instance to be classified
-    // return the classification
+    /**
+     * Classifies a given test instance using the TREPAN tree
+     * @param node root node
+     * @param instance to be classified
+     * @return the classification of the trepan instance
+     */
     private double classifyTrepanInstance(TrepanNode node, Instance instance) {
         Attribute m_SplitAttribute = node.getSplitAttribute();
         if (node.getSplitAttribute() == null) {
@@ -419,9 +458,12 @@ public class Trepan extends AbstractClassifier implements OptionHandler {
         }
     }
 
-    // Computes class distribution for instance using decision tree
-    // instance = instance for which distribution is to be computed
-    // return the class distribution for the given instance
+    /**
+     * Computes class distribution for instance using decision tree
+     * @param instance the instance for which distribution is to be computed
+     * @return the class distribution for the given instance
+     * @throws Exception
+     */
     public double[] distributionForInstance(Instance instance) throws Exception {
         // Replace missing values
         m_Filter.input(instance);
@@ -431,6 +473,10 @@ public class Trepan extends AbstractClassifier implements OptionHandler {
         return distributionForTrepanInstance(m_RootNode, instance);
     }
 
+    /**
+     * Get capabilities method required for weka
+     * @return capabilities for TREPAN, inherited from multilayer perceptron
+     */
     @Override
     public Capabilities getCapabilities() {
         Capabilities result = new Capabilities(this);
@@ -439,22 +485,22 @@ public class Trepan extends AbstractClassifier implements OptionHandler {
         // attributes
         result.enable(Capabilities.Capability.NOMINAL_ATTRIBUTES);
         result.enable(Capabilities.Capability.NUMERIC_ATTRIBUTES);
-        result.enable(Capabilities.Capability.DATE_ATTRIBUTES);
         result.enable(Capabilities.Capability.MISSING_VALUES);
 
         // class
         result.enable(Capabilities.Capability.NOMINAL_CLASS);
         result.enable(Capabilities.Capability.NUMERIC_CLASS);
-        result.enable(Capabilities.Capability.DATE_CLASS);
         result.enable(Capabilities.Capability.MISSING_CLASS_VALUES);
 
         return result;
     }
 
-    // Computes class distribution for instance using TREPAN tree
-    // node = root node
-    // instance = instance for which distribution is to be computed
-    // return the class distribution for the given instance
+    /**
+     * Computes class distribution for instance using TREPAN tree
+     * @param node root
+     * @param instance for which distribution is to be completed
+     * @return the class distribution for the given instance
+     */
     private double[] distributionForTrepanInstance(TrepanNode node, Instance instance) {
         Attribute m_Attribute = node.getSplitAttribute();
         if (m_Attribute == null) {
@@ -488,17 +534,13 @@ public class Trepan extends AbstractClassifier implements OptionHandler {
             return "Trepan: No model built yet";
         }
 
-        StringBuffer text = new StringBuffer();
-        text.append("Trepan\n\n" + toString(m_RootNode, 0));
-
-        text.append("\n\nNumber of Leaves: \t" + getCountLeaves() + "\n");
-        text.append("\nSize of the tree: \t" + getCountNodes() + "\n");
-
-        return text.toString();
+        return ("Trepan\n\n" + toString(m_RootNode, 0)) +
+                "\n\nNumber of Leaves: \t" + getCountLeaves() + "\n" +
+                "\nSize of the tree: \t" + getCountNodes() + "\n";
     }
 
     private String toString(TrepanNode node, int level) {
-        StringBuffer text = new StringBuffer();
+        StringBuilder text = new StringBuilder();
         Attribute m_Attribute = node.getSplitAttribute();
         double dClass = node.getClassLabel();
 
@@ -507,7 +549,7 @@ public class Trepan extends AbstractClassifier implements OptionHandler {
             if (Utils.isMissingValue(dClass)) {
                 text.append(": null");
             } else {
-                text.append(": " + m_ClassAttribute.value((int) dClass));
+                text.append(": ").append(classAttribute.value((int) dClass));
             }
         } else {
             m_CountNodes++;
@@ -517,23 +559,34 @@ public class Trepan extends AbstractClassifier implements OptionHandler {
                     text.append("| ");
                 }
                 if (m_Attribute.isNominal()) {
-                    text.append(m_Attribute.name() + " = " + m_Attribute.value(j)
-                            + " (R= " + Utils.roundDouble(node.getChild(j).getReach(), 3) + ","
-                            + " (F= " + Utils.roundDouble(node.getChild(j).getFidelity(), 3) + ","
-                            + " (B= " + Utils.roundDouble(node.getChild(j).getBestFirst(), 3) + ")");
+                    text.append(m_Attribute.name())
+                            .append(" = ")
+                            .append(m_Attribute.value(j))
+                            .append(" (R= ")
+                            .append(Utils.roundDouble(node.getChild(j).getReach(), 3))
+                            .append(",")
+                            .append(" (F= ")
+                            .append(Utils.roundDouble(node.getChild(j).getFidelity(), 3))
+                            .append(",")
+                            .append(" (B= ")
+                            .append(Utils.roundDouble(node.getChild(j).getBestFirst(), 3))
+                            .append(")");
                 } else {
                     if (j == 0) {
-                        text.append(m_Attribute.name() + "\t\t\t<=\t\t\t"
-                                + Utils.roundDouble(node.getSplitValue(m_Attribute), 5)
-                                + " (R= " + Utils.roundDouble(node.getChild(j).getReach(), 3) + ","
-                                + " (F= " + Utils.roundDouble(node.getChild(j).getFidelity(), 3) + ","
-                                + " (B= " + Utils.roundDouble(node.getChild(j).getBestFirst(), 3) + ")");
+                        text.append(m_Attribute.name())
+                                .append(" <= ")
+                                .append(Utils.roundDouble(node.getSplitValue(m_Attribute), 5))
+                                .append(" (R= ")
+                                .append(Utils.roundDouble(node.getChild(j).getReach(), 3))
+                                .append(",")
+                                .append(" (F= ")
+                                .append(Utils.roundDouble(node.getChild(j).getFidelity(), 3))
+                                .append(",")
+                                .append(" (B= ")
+                                .append(Utils.roundDouble(node.getChild(j).getBestFirst(), 3))
+                                .append(")");
                     } else {
-                        text.append(m_Attribute.name() + "\t\t\t>\t\t\t"
-                                + Utils.roundDouble(node.getSplitValue(m_Attribute), 5)
-                                + " (R= " + Utils.roundDouble(node.getChild(j).getReach(), 3) + ","
-                                + " (F= " + Utils.roundDouble(node.getChild(j).getFidelity(), 3) + ","
-                                + " (B= " + Utils.roundDouble(node.getChild(j).getBestFirst(), 3) + ")");
+                        text.append(m_Attribute.name()).append(" > ").append(Utils.roundDouble(node.getSplitValue(m_Attribute), 5)).append(" (R= ").append(Utils.roundDouble(node.getChild(j).getReach(), 3)).append(",").append(" (F= ").append(Utils.roundDouble(node.getChild(j).getFidelity(), 3)).append(",").append(" (B= ").append(Utils.roundDouble(node.getChild(j).getBestFirst(), 3)).append(")");
                     }
                 }
                 TrepanNode childNode = node.getChild(j);
@@ -548,27 +601,27 @@ public class Trepan extends AbstractClassifier implements OptionHandler {
     // Max number of nodes in the tree
     public void setMaxNodes(int i) {
         if (i >= 0) {
-            m_maxNodes = i;
+            maxNumberOfNodes = i;
         }
     }
 
     // return max number of nodes in the tree
     public int getMaxNodes() {
-        return m_maxNodes;
+        return maxNumberOfNodes;
     }
 
     // min number of examples to test a node
     public void setMinSamples(int i) {
         if (i >= 0 ) {
-            m_minSamples = i;
+            minNumberOfNodes = i;
         } else {
-            m_minSamples = 0;
+            minNumberOfNodes = 0;
         }
     }
 
     // return min number of examples to test a node
     public int getMinSamples() {
-        return m_minSamples;
+        return minNumberOfNodes;
     }
 
     // return data classified with oracle
@@ -588,12 +641,12 @@ public class Trepan extends AbstractClassifier implements OptionHandler {
 
     // return trepan's oracle
     public Classifier getOracle() {
-        return m_Oracle;
+        return oracle;
     }
 
     // classifier used as the oracle
     public void setOracle(Classifier c) {
-        m_Oracle = c;
+        oracle = c;
     }
 
     // best first value
@@ -617,12 +670,12 @@ public class Trepan extends AbstractClassifier implements OptionHandler {
 
     // prop of instances to make a leaf
     public void setPropInstances(double i) {
-        m_propInst = i;
+        proportionOfSameClass = i;
     }
 
     // prop of instances to make a leaf
     public double getPropInstances() {
-        return m_propInst;
+        return proportionOfSameClass;
     }
 
     // return fidelity
@@ -643,9 +696,9 @@ public class Trepan extends AbstractClassifier implements OptionHandler {
         newVector.addElement(new Option("\tProp. Inst.", "I", 0, "-I"));
         newVector.addElement(new Option("\tFull name of classifier to use as oracle." + "\tNot Optional." + "\teg: weka.classifiers.neural.NeuralNetwork", "W", 1, "-W <classifier class name>"));
 
-        if ((m_Oracle != null) && (m_Oracle instanceof OptionHandler)) {
-            newVector.addElement(new Option("", "", 0, "\nOptions specific to sub-classifier" + m_Oracle.getClass().getName() + ":\n(use -- to signal start of sub-classifier options)"));
-            Enumeration enumeration = ((OptionHandler)m_Oracle).listOptions();
+        if ((oracle instanceof OptionHandler)) {
+            newVector.addElement(new Option("", "", 0, "\nOptions specific to sub-classifier" + oracle.getClass().getName() + ":\n(use -- to signal start of sub-classifier options)"));
+            Enumeration enumeration = ((OptionHandler) oracle).listOptions();
             while (enumeration.hasMoreElements()) {
                 newVector.addElement(enumeration.nextElement());
             }
@@ -675,7 +728,7 @@ public class Trepan extends AbstractClassifier implements OptionHandler {
 
         String propInstances = Utils.getOption('I', options);
         if (propInstances.length() != 0) {
-            double prop = (new Double(propInstances)).doubleValue();
+            double prop = new Double(propInstances);
             if (prop <= 0 || prop > 1) {
                 setPropInstances(0.95);
             } else {
@@ -697,8 +750,8 @@ public class Trepan extends AbstractClassifier implements OptionHandler {
     // return an array of strings suitable for passing to setOptions()
     public String[] getOptions() {
         String [] classifierOptions = new String[0];
-        if ((m_Oracle != null) && (m_Oracle instanceof OptionHandler)) {
-            classifierOptions = ((OptionHandler) m_Oracle).getOptions();
+        if ((oracle instanceof OptionHandler)) {
+            classifierOptions = ((OptionHandler) oracle).getOptions();
         }
 
         String[] options = new String[classifierOptions.length + 11];

@@ -10,60 +10,65 @@ import weka.core.*;
 
 public class NominalEstimator implements TrepanEstimator {
     /** Hold the counts */
-    private double [] m_Counts;
+    private double [] counts;
     /** Hold the sum of counts */
-    private double m_SumOfCunts;
+    private double sumOfCounts;
     /** Hold the accumulated probabilities */
-    private double [] m_AcumCounts;
+    private double [] accumulatedCounts;
 
     /**
      * Constructor
      *
-     * @param numSymbols the number of possible symbols
+     * @param numSymbols the number of possible symbols (including 0)
      * @param laplace if true, counts will be initialised to 1
      */
     public NominalEstimator(int numSymbols, boolean laplace) {
-        m_Counts = new double [numSymbols];
-        m_AcumCounts = new double [numSymbols];
-        m_SumOfCunts = 0;
+        counts = new double [numSymbols];
+        accumulatedCounts = new double [numSymbols];
+        sumOfCounts = 0;
         if (laplace) {
             for (int i = 0; i < numSymbols; i++) {
-                m_Counts[i] = 1;
+                counts[i] = 1;
             }
-            m_SumOfCunts = (double)numSymbols;
+            sumOfCounts = (double)numSymbols;
         }
     }
 
-    // Add a new data value to the current estimator
-    // data = new data value
-    // weight = weight assigned to the data value
+    /**
+     * Add a new data value to the current estimator
+     * @param data new data value
+     * @param weight weight assigned to the data value
+     */
     public void addValue(double data, double weight) {
-        m_Counts[(int)data] += weight;
-        m_SumOfCunts += weight;
+        counts[(int)data] += weight;
+        sumOfCounts += weight;
     }
 
-    // get a probability estimate for a value
-    // data the value to estimate the probability of
-    // the estimated probability of the supplied value
+    /**
+     * Get a Propability estimate for a value
+     * @param data the value to estimate the probability of
+     * @return the estimated probability of the supplied value
+     */
     public double getProbability(double data) {
-        if (m_SumOfCunts == 0) {
-            return 0;
-        }
-        return (double)m_Counts[(int)data] / m_SumOfCunts;
+        return (sumOfCounts == 0) ? 0 : counts[(int)data] / sumOfCounts;
     }
 
-    // gets the number of symbols this estimator operates with
-    // return the number of estimator symbols
+    /**
+     * Gets the number of symbols this estimator operates with
+     * @return the number of estimator symbols
+     */
     public int getNumSymbols() {
-        return (m_Counts == null) ? 0 : m_Counts.length;
+        return (counts == null) ? 0 : counts.length;
     }
 
-    // generates a random value according to the estimator distribution
-    // seed = random seed
-    // retun the value generated
+    /**
+     * Generates a random value according to the estimator distribution
+     * @param seed random seed
+     * @return the value generated
+     */
     public double newValue(long seed) {
         // If no values then return missing value
-        if (m_SumOfCunts == 0) {
+        if (sumOfCounts == 0) {
             return Double.NaN;
         }
 
@@ -73,20 +78,20 @@ public class NominalEstimator implements TrepanEstimator {
         int value = 0;
 
         //Accumulate probabilities
-        for (int i =0; i < m_AcumCounts.length; i++) {
+        for (int i = 0; i < accumulatedCounts.length; i++) {
             sum = sum + getProbability((double)i);
-            m_AcumCounts[i] = sum;
+            accumulatedCounts[i] = sum;
         }
 
         // Sum of probabilities = 1
-        m_AcumCounts[m_AcumCounts.length - 1] = 1;
+        accumulatedCounts[accumulatedCounts.length - 1] = 1;
 
-        // Genrate a random value to choose the value to be returned
+        // Generate a random value to choose the value to be returned
         r = random.nextDouble();
         int j = 0;
         boolean found = false;
-        while ( (found == false) && (j < m_Counts.length)) {
-            if (m_AcumCounts[j] >= r) {
+        while ( (!found) && (j < counts.length)) {
+            if (accumulatedCounts[j] >= r) {
                 value = j;
                 found = true;
             }
@@ -95,25 +100,30 @@ public class NominalEstimator implements TrepanEstimator {
         return (double)value;
     }
 
-    // Display a representation of this estimator
+    /**
+     * Display a representation of this estimator
+     * @return a string representation of this estimator
+     */
     public String toString() {
-        String result = "Discrete Estimator. Counts = ";
-        if (m_SumOfCunts > 1) {
-            for (int i = 0; i < m_Counts.length; i++) {
-                result += " " + Utils.doubleToString(m_Counts[i], 2);
+        StringBuilder result = new StringBuilder("Discrete Estimator. Counts = ");
+        if (sumOfCounts > 1) {
+            for (double m_Count : counts) {
+                result.append(" ").append(Utils.doubleToString(m_Count, 2));
             }
-            result += " (Total = " + Utils.doubleToString(m_SumOfCunts, 2) + ")\n";
+            result.append(" (Total = ").append(Utils.doubleToString(sumOfCounts, 2)).append(")\n");
         } else {
-            for (int i =0; i < m_Counts.length; i++) {
-                result += " " + m_Counts[i];
+            for (double m_Count : counts) {
+                result.append(" ").append(m_Count);
             }
-            result += " (Total = " + m_SumOfCunts + ")\n";
+            result.append(" (Total = ").append(sumOfCounts).append(")\n");
         }
-        return result;
+        return result.toString();
     }
 
-    // Main method for testing this class
-    // argv should contain a sequence of integers which will be treated as symbolic
+    /**
+     * Main method for testing this class
+     * @param argv should contain a sequence of integers which will be treated as symbolic
+     */
     public static void main(String [] argv) {
         try {
             if (argv.length == 0) {
@@ -122,15 +132,15 @@ public class NominalEstimator implements TrepanEstimator {
             }
             int current = Integer.parseInt(argv[0]);
             int max = current;
-            for (int i =0; i < argv.length; i++) {
-                current = Integer.parseInt(argv[i]);
+            for (String anArgv : argv) {
+                current = Integer.parseInt(anArgv);
                 if (current > max) {
                     max = current;
                 }
             }
             NominalEstimator newEst = new NominalEstimator(max + 1, true);
-            for (int i = 0; i < argv.length; i++) {
-                current = Integer.parseInt(argv[i]);
+            for (String anArgv : argv) {
+                current = Integer.parseInt(anArgv);
                 System.out.println(newEst);
                 System.out.println("Prediction for " + current + " = " + newEst.getProbability(current));
                 newEst.addValue(current, 1);

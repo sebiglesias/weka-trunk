@@ -1,6 +1,5 @@
 package weka.classifiers.trepan;
 
-import java.util.*;
 import java.io.*;
 
 public interface TrepanEstimator extends Serializable {

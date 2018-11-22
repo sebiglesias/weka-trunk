@@ -191,7 +191,7 @@ public class TrepanNode {
         double prop = 1;
 
         if (m_CountTrainEx + m_CountQueryEx > 0) {
-            prop = (double) m_ClassDistribution[(int)m_ClassLabel] / (double) (m_CountQueryEx + m_CountTrainEx);
+            prop = m_ClassDistribution[(int)m_ClassLabel] / (double) (m_CountQueryEx + m_CountTrainEx);
         }
 
         if (prop > PropC) {
@@ -271,9 +271,9 @@ public class TrepanNode {
                 m_Children[j].setNodeType("N");
                 // Compute Reach
                 if (m_CountQueryEx > 0) {
-                    reach = m_Reach * (double)((splitData[j].numInstances() + splitQueryData[j].numInstances()) / (double) (m_CountTrainEx + m_CountQueryEx));
+                    reach = m_Reach * ((splitData[j].numInstances() + splitQueryData[j].numInstances()) / (double) (m_CountTrainEx + m_CountQueryEx));
                 } else {
-                    reach = m_Reach * (double)(splitData[j].numInstances() / (double) m_CountTrainEx);
+                    reach = m_Reach * (splitData[j].numInstances() / (double) m_CountTrainEx);
                 }
                 m_Children[j].setReach(reach);
                 n++;
@@ -326,7 +326,7 @@ public class TrepanNode {
     // Computes the entropy of a dataset
     // data = the data for which entropy is to be computed
     // return the entropy of the data's class distribution
-    private double computeEntropy(Instances data) throws Exception {
+    private double computeEntropy(Instances data) {
         double [] classCounts = new double[m_NumClass];
         Enumeration instEnum = data.enumerateInstances();
         while (instEnum.hasMoreElements()) {
@@ -351,7 +351,7 @@ public class TrepanNode {
     // att = the attribute to be used for splitting
     // value = is the split value for numeric attributes
     // return the sets of instances produced by the split
-    private Instances[] splitData(Instances data, Attribute att, double value) throws Exception {
+    private Instances[] splitData(Instances data, Attribute att, double value) {
         int k = 2;
         if (att.isNominal()) {
             k = att.numValues();
