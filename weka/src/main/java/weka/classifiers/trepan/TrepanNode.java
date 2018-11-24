@@ -8,7 +8,7 @@ import weka.classifiers.*;
 import weka.estimators.Estimator;
 import java.lang.*;
 
-public class TrepanNode {
+public class TrepanNode implements Serializable {
     //subset of training examples that reach the node
     private Instances trainExamples;
 
